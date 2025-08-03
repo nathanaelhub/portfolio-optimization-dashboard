@@ -1,0 +1,10 @@
+Symbol,Name,Allocation,Shares,Price,Value,Sector,Asset Class,Expense Ratio
+AAPL,Apple Inc.,0.15,162.5,184.92,30000.00,Technology,Equity,0.00%
+MSFT,Microsoft Corporation,0.15,79.8,376.44,30000.00,Technology,Equity,0.00%
+GOOGL,Alphabet Inc. Class A,0.12,172.4,139.25,24000.00,Technology,Equity,0.00%
+AMZN,Amazon.com Inc.,0.10,135.7,147.32,20000.00,Consumer Discretionary,Equity,0.00%
+TSLA,Tesla Inc.,0.08,78.9,202.64,16000.00,Consumer Discretionary,Equity,0.00%
+NVDA,NVIDIA Corporation,0.10,27.8,719.85,20000.00,Technology,Equity,0.00%
+META,Meta Platforms Inc.,0.08,41.2,388.44,16000.00,Technology,Equity,0.00%
+ARKK,ARK Innovation ETF,0.12,512.8,46.85,24000.00,Innovation,Equity,0.75%
+HYG,iShares iBoxx $ High Yield Corporate Bond ETF,0.10,255.7,78.25,20000.00,High Yield,Bond,0.49%

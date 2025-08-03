@@ -1,0 +1,486 @@
+version: '3.8'
+
+services:
+  # Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: portfolio-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./ssl:/etc/ssl/certs
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - backend-1
+      - backend-2
+      - frontend
+    networks:
+      - portfolio-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`portfolio-dashboard.com`)"
+      - "traefik.http.routers.nginx.tls=true"
+      - "traefik.http.routers.nginx.tls.certresolver=letsencrypt"
+
+  # Backend Services (Multiple Instances)
+  backend-1:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-backend-1
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://portfolio_user:${POSTGRES_PASSWORD}@postgres-primary:5432/portfolio_db
+      - REDIS_URL=redis://redis-cluster:6379/0
+      - ENVIRONMENT=production
+      - INSTANCE_ID=backend-1
+      - PORT=8000
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend-2:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-backend-2
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://portfolio_user:${POSTGRES_PASSWORD}@postgres-primary:5432/portfolio_db
+      - REDIS_URL=redis://redis-cluster:6379/0
+      - ENVIRONMENT=production
+      - INSTANCE_ID=backend-2
+      - PORT=8000
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=https://api.portfolio-dashboard.com
+      - REACT_APP_VERSION=${APP_VERSION}
+    volumes:
+      - static_volume:/app/build/static
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Database Cluster
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: portfolio-postgres-primary
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=portfolio_db
+      - POSTGRES_USER=portfolio_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_REPLICATION_USER=replicator
+      - POSTGRES_REPLICATION_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./postgres/init-replication.sql:/docker-entrypoint-initdb.d/init-replication.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - portfolio-network
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio_user -d portfolio_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: portfolio-postgres-replica
+    restart: unless-stopped
+    environment:
+      - PGUSER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_MASTER_USER=replicator
+      - POSTGRES_MASTER_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
+      - POSTGRES_MASTER_HOST=postgres-primary
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./postgres/recovery.conf:/etc/postgresql/recovery.conf
+    ports:
+      - "5433:5432"
+    networks:
+      - portfolio-network
+    depends_on:
+      - postgres-primary
+    command: |
+      bash -c "
+      if [ ! -s /var/lib/postgresql/data/PG_VERSION ]; then
+        pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U replicator -v -P -W
+        echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+        echo 'primary_conninfo = host=postgres-primary port=5432 user=replicator' >> /var/lib/postgresql/data/recovery.conf
+      fi
+      postgres
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          cpus: '0.75'
+          memory: 1.5G
+
+  # Redis Cluster
+  redis-cluster:
+    image: redis:7-alpine
+    container_name: portfolio-redis-cluster
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Task Queue Workers
+  celery-worker-1:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-celery-worker-1
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info --concurrency=4 --hostname=worker-1@%h
+    environment:
+      - DATABASE_URL=postgresql://portfolio_user:${POSTGRES_PASSWORD}@postgres-primary:5432/portfolio_db
+      - REDIS_URL=redis://redis-cluster:6379/0
+      - CELERY_BROKER_URL=redis://redis-cluster:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis-cluster:6379/2
+      - ENVIRONMENT=production
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '1.0'
+          memory: 1.5G
+
+  celery-worker-2:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-celery-worker-2
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info --concurrency=4 --hostname=worker-2@%h
+    environment:
+      - DATABASE_URL=postgresql://portfolio_user:${POSTGRES_PASSWORD}@postgres-primary:5432/portfolio_db
+      - REDIS_URL=redis://redis-cluster:6379/0
+      - CELERY_BROKER_URL=redis://redis-cluster:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis-cluster:6379/2
+      - ENVIRONMENT=production
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '1.0'
+          memory: 1.5G
+
+  # Task Scheduler
+  celery-beat:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.production
+    container_name: portfolio-celery-beat
+    restart: unless-stopped
+    command: celery -A app.celery beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DATABASE_URL=postgresql://portfolio_user:${POSTGRES_PASSWORD}@postgres-primary:5432/portfolio_db
+      - REDIS_URL=redis://redis-cluster:6379/0
+      - CELERY_BROKER_URL=redis://redis-cluster:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis-cluster:6379/2
+      - ENVIRONMENT=production
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Monitoring Services
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: portfolio-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: portfolio-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Log Aggregation
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: portfolio-elasticsearch
+    restart: unless-stopped
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=portfolio-logs
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.5.0
+    container_name: portfolio-logstash
+    restart: unless-stopped
+    volumes:
+      - ./logging/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - logs_volume:/app/logs:ro
+    ports:
+      - "5044:5044"
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    depends_on:
+      - elasticsearch
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.0
+    container_name: portfolio-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=portfolio-kibana
+    depends_on:
+      - elasticsearch
+    networks:
+      - portfolio-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: portfolio-backup
+    restart: "no"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh
+    depends_on:
+      - postgres-primary
+    networks:
+      - portfolio-network
+    command: /bin/sh -c "chmod +x /backup.sh && /backup.sh"
+    profiles:
+      - backup
+
+volumes:
+  postgres_primary_data:
+    driver: local
+  postgres_replica_data:
+    driver: local
+  redis_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  logs_volume:
+    driver: local
+
+networks:
+  portfolio-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

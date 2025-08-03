@@ -1,0 +1,1155 @@
+openapi: 3.0.3
+info:
+  title: Portfolio Optimization Dashboard API
+  description: |
+    Comprehensive API for portfolio optimization using modern portfolio theory and advanced financial algorithms.
+    
+    ## Features
+    - **Portfolio Optimization**: Markowitz, Black-Litterman, Risk Parity algorithms
+    - **Risk Analytics**: VaR, CVaR, Sharpe ratio, maximum drawdown calculations
+    - **Monte Carlo Simulations**: Up to 100,000 scenario analysis
+    - **Backtesting**: Historical performance validation
+    - **Real-time Data**: Market data integration with caching
+    - **Security**: JWT authentication, rate limiting, input validation
+    
+    ## Authentication
+    This API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limits
+    - Authentication endpoints: 5 requests per 5 minutes
+    - General API endpoints: 100 requests per minute  
+    - Optimization endpoints: 10 requests per minute
+    - File upload endpoints: 5 requests per minute
+    
+    ## Error Handling
+    The API uses standard HTTP status codes and returns detailed error messages in JSON format.
+    
+  version: "1.0.0"
+  contact:
+    name: Portfolio Optimization Team
+    email: api-support@portfolio-dashboard.com
+    url: https://docs.portfolio-dashboard.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.portfolio-dashboard.com/v1
+    description: Production server
+  - url: https://staging-api.portfolio-dashboard.com/v1
+    description: Staging server
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account with email verification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+            example:
+              email: "investor@example.com"
+              password: "SecurePass123!"
+              full_name: "John Investor"
+              investment_experience: "intermediate"
+              risk_tolerance: "moderate"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            example:
+              email: "investor@example.com"
+              password: "SecurePass123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Valid refresh token
+              required:
+                - refresh_token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                    example: "bearer"
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Portfolio Management
+  /portfolios:
+    get:
+      tags:
+        - Portfolios
+      summary: List user portfolios
+      description: Get all portfolios for the authenticated user
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of portfolios to return
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of portfolios to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort_by
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [name, created_at, updated_at, total_value]
+            default: created_at
+        - name: sort_direction
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of portfolios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  portfolios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Portfolio'
+                  total:
+                    type: integer
+                    description: Total number of portfolios
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+    post:
+      tags:
+        - Portfolios
+      summary: Create new portfolio
+      description: Create a new portfolio with initial holdings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePortfolioRequest'
+      responses:
+        '201':
+          description: Portfolio created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+        '400':
+          description: Invalid portfolio data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /portfolios/{portfolio_id}:
+    get:
+      tags:
+        - Portfolios
+      summary: Get portfolio details
+      description: Retrieve detailed information about a specific portfolio
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          description: Portfolio ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Portfolio details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioDetails'
+        '404':
+          description: Portfolio not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Portfolios
+      summary: Update portfolio
+      description: Update portfolio details and holdings
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePortfolioRequest'
+      responses:
+        '200':
+          description: Portfolio updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+
+    delete:
+      tags:
+        - Portfolios
+      summary: Delete portfolio
+      description: Permanently delete a portfolio
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Portfolio deleted successfully
+        '404':
+          description: Portfolio not found
+
+  # Optimization Endpoints
+  /optimization/optimize:
+    post:
+      tags:
+        - Optimization
+      summary: Optimize portfolio
+      description: |
+        Run portfolio optimization using specified algorithm and constraints.
+        
+        Supported optimization methods:
+        - **max_sharpe**: Maximize Sharpe ratio (risk-adjusted returns)
+        - **min_volatility**: Minimize portfolio volatility
+        - **max_return**: Maximize expected returns (with risk constraints)
+        - **risk_parity**: Equal risk contribution from all assets
+        - **target_return**: Minimize risk for target return level
+        - **black_litterman**: Bayesian optimization with market views
+        
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+            examples:
+              max_sharpe:
+                summary: Maximum Sharpe Ratio
+                value:
+                  symbols: ["AAPL", "GOOGL", "MSFT", "TSLA"]
+                  method: "max_sharpe"
+                  risk_free_rate: 0.02
+                  constraints:
+                    max_weight: 0.4
+                    min_weight: 0.05
+              risk_parity:
+                summary: Risk Parity Portfolio
+                value:
+                  symbols: ["SPY", "TLT", "GLD", "VTI"]
+                  method: "risk_parity"
+                  constraints:
+                    max_weight: 0.5
+      responses:
+        '200':
+          description: Optimization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Optimization failed (infeasible constraints)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /optimization/efficient-frontier:
+    post:
+      tags:
+        - Optimization
+      summary: Generate efficient frontier
+      description: Generate risk-return efficient frontier points for visualization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbols:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 2
+                  maxItems: 50
+                  example: ["AAPL", "GOOGL", "MSFT", "AMZN"]
+                num_points:
+                  type: integer
+                  minimum: 10
+                  maximum: 200
+                  default: 50
+                  description: Number of frontier points to generate
+                start_date:
+                  type: string
+                  format: date
+                  description: Historical data start date
+                  example: "2020-01-01"
+                end_date:
+                  type: string
+                  format: date
+                  description: Historical data end date
+                  example: "2023-12-31"
+                constraints:
+                  $ref: '#/components/schemas/OptimizationConstraints'
+              required:
+                - symbols
+      responses:
+        '200':
+          description: Efficient frontier generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EfficientFrontierResponse'
+
+  /optimization/monte-carlo:
+    post:
+      tags:
+        - Optimization
+      summary: Run Monte Carlo simulation
+      description: |
+        Perform Monte Carlo simulation for portfolio returns projections.
+        Simulates portfolio performance over specified time horizon with given number of scenarios.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonteCarloRequest'
+      responses:
+        '200':
+          description: Monte Carlo simulation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonteCarloResult'
+
+  /optimization/backtest:
+    post:
+      tags:
+        - Optimization
+      summary: Backtest portfolio strategy
+      description: |
+        Perform historical backtesting of portfolio optimization strategy.
+        Tests how the optimization would have performed with historical data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequest'
+      responses:
+        '200':
+          description: Backtest completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResult'
+
+  # Market Data
+  /market-data/search:
+    get:
+      tags:
+        - Market Data
+      summary: Search financial instruments
+      description: Search for stocks, ETFs, and other financial instruments
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Search query (symbol or company name)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: "AAPL"
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FinancialInstrument'
+                  query:
+                    type: string
+                  total_results:
+                    type: integer
+
+  /market-data/historical:
+    get:
+      tags:
+        - Market Data
+      summary: Get historical price data
+      description: Retrieve historical price data for financial instruments
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          description: Comma-separated list of symbols
+          schema:
+            type: string
+          example: "AAPL,GOOGL,MSFT"
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2023-01-01"
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2023-12-31"
+        - name: frequency
+          in: query
+          description: Data frequency
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: daily
+      responses:
+        '200':
+          description: Historical price data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalDataResponse'
+
+  # Analytics
+  /analytics/correlation:
+    post:
+      tags:
+        - Analytics
+      summary: Calculate correlation matrix
+      description: Calculate correlation matrix for given assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbols:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 2
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+              required:
+                - symbols
+                - start_date
+                - end_date
+      responses:
+        '200':
+          description: Correlation matrix calculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorrelationMatrix'
+
+  /analytics/risk-metrics:
+    post:
+      tags:
+        - Analytics
+      summary: Calculate risk metrics
+      description: Calculate comprehensive risk metrics for portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskMetricsRequest'
+      responses:
+        '200':
+          description: Risk metrics calculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskMetricsResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for API authentication
+
+  schemas:
+    # Authentication Schemas
+    UserRegistration:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+          description: Password must contain uppercase, lowercase, number, and special character
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        investment_experience:
+          type: string
+          enum: [beginner, intermediate, advanced, professional]
+        risk_tolerance:
+          type: string
+          enum: [conservative, moderate, aggressive]
+      required:
+        - email
+        - password
+        - full_name
+        - investment_experience
+        - risk_tolerance
+
+    UserLogin:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (expires in 15 minutes)
+        refresh_token:
+          type: string
+          description: Refresh token (expires in 30 days)
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Access token expiration time in seconds
+          example: 900
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        investment_experience:
+          type: string
+        risk_tolerance:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_login:
+          type: string
+          format: date-time
+
+    # Portfolio Schemas
+    Portfolio:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        total_value:
+          type: number
+          format: float
+          description: Total portfolio value in USD
+        expected_return:
+          type: number
+          format: float
+          description: Expected annual return (decimal)
+        volatility:
+          type: number
+          format: float
+          description: Portfolio volatility (standard deviation)
+        sharpe_ratio:
+          type: number
+          format: float
+          description: Risk-adjusted return metric
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holding'
+
+    Holding:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Asset symbol
+        name:
+          type: string
+          description: Asset name
+        allocation:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Portfolio allocation (decimal)
+        value:
+          type: number
+          format: float
+          description: Holding value in USD
+        shares:
+          type: number
+          format: float
+          description: Number of shares
+        current_price:
+          type: number
+          format: float
+          description: Current price per share
+        day_change:
+          type: number
+          format: float
+          description: Daily price change
+        day_change_percent:
+          type: number
+          format: float
+          description: Daily percentage change
+
+    CreatePortfolioRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        initial_value:
+          type: number
+          format: float
+          minimum: 1000
+          description: Initial portfolio value in USD
+        risk_tolerance:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        investment_horizon:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Investment horizon in years
+        holdings:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              allocation:
+                type: number
+                format: float
+                minimum: 0
+                maximum: 1
+            required:
+              - symbol
+              - allocation
+          minItems: 1
+          maxItems: 50
+      required:
+        - name
+        - initial_value
+        - holdings
+
+    # Optimization Schemas
+    OptimizationRequest:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 50
+        method:
+          type: string
+          enum: [max_sharpe, min_volatility, max_return, risk_parity, target_return, black_litterman]
+        risk_free_rate:
+          type: number
+          format: float
+          default: 0.02
+          minimum: 0
+          maximum: 0.1
+        target_return:
+          type: number
+          format: float
+          description: Required for target_return method
+        start_date:
+          type: string
+          format: date
+          description: Historical data start date
+        end_date:
+          type: string
+          format: date
+          description: Historical data end date
+        constraints:
+          $ref: '#/components/schemas/OptimizationConstraints'
+        market_views:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketView'
+          description: Required for black_litterman method
+      required:
+        - symbols
+        - method
+
+    OptimizationConstraints:
+      type: object
+      properties:
+        max_weight:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Maximum weight for any asset
+        min_weight:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Minimum weight for any asset
+        max_volatility:
+          type: number
+          format: float
+          minimum: 0
+          description: Maximum portfolio volatility
+        target_volatility:
+          type: number
+          format: float
+          minimum: 0
+          description: Target portfolio volatility
+        sector_limits:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 1
+          description: Maximum allocation per sector
+
+    MarketView:
+      type: object
+      properties:
+        asset:
+          type: string
+          description: Asset symbol
+        expected_return:
+          type: number
+          format: float
+          description: Expected return (annual)
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence level (0-1)
+      required:
+        - asset
+        - expected_return
+        - confidence
+
+    OptimizationResult:
+      type: object
+      properties:
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          description: Optimal asset weights
+        expected_return:
+          type: number
+          format: float
+          description: Expected annual return
+        volatility:
+          type: number
+          format: float
+          description: Portfolio volatility (annual)
+        sharpe_ratio:
+          type: number
+          format: float
+          description: Risk-adjusted return metric
+        max_drawdown:
+          type: number
+          format: float
+          description: Maximum historical drawdown
+        var_95:
+          type: number
+          format: float
+          description: Value at Risk (95% confidence)
+        cvar_95:
+          type: number
+          format: float
+          description: Conditional Value at Risk (95% confidence)
+        computation_time:
+          type: number
+          format: float
+          description: Optimization time in seconds
+        converged:
+          type: boolean
+          description: Whether optimization converged
+        objective_value:
+          type: number
+          format: float
+          description: Objective function value
+
+    # Additional schemas continue...
+    EfficientFrontierResponse:
+      type: object
+      properties:
+        frontier_points:
+          type: array
+          items:
+            type: object
+            properties:
+              expected_return:
+                type: number
+                format: float
+              volatility:
+                type: number
+                format: float
+              weights:
+                type: object
+                additionalProperties:
+                  type: number
+                  format: float
+        optimal_portfolio:
+          $ref: '#/components/schemas/OptimizationResult'
+        computation_time:
+          type: number
+          format: float
+
+    MonteCarloRequest:
+      type: object
+      properties:
+        portfolio_weights:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        time_horizon:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: Simulation time horizon in days
+        num_simulations:
+          type: integer
+          minimum: 1000
+          maximum: 100000
+          default: 10000
+        initial_value:
+          type: number
+          format: float
+          default: 100000
+          description: Initial portfolio value
+      required:
+        - portfolio_weights
+        - time_horizon
+
+    MonteCarloResult:
+      type: object
+      properties:
+        percentiles:
+          type: object
+          properties:
+            p5:
+              type: number
+              format: float
+            p25:
+              type: number
+              format: float
+            p50:
+              type: number
+              format: float
+            p75:
+              type: number
+              format: float
+            p95:
+              type: number
+              format: float
+        statistics:
+          type: object
+          properties:
+            mean:
+              type: number
+              format: float
+            std_dev:
+              type: number
+              format: float
+            min_value:
+              type: number
+              format: float
+            max_value:
+              type: number
+              format: float
+        sample_paths:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+          description: Sample simulation paths (first 100)
+        computation_time:
+          type: number
+          format: float
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+
+    # More schemas for completeness...
+    FinancialInstrument:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [stock, etf, bond, commodity]
+        exchange:
+          type: string
+        sector:
+          type: string
+        market_cap:
+          type: number
+          format: float
+        current_price:
+          type: number
+          format: float
+
+    HistoricalDataResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+                open:
+                  type: number
+                  format: float
+                high:
+                  type: number
+                  format: float
+                low:
+                  type: number
+                  format: float
+                close:
+                  type: number
+                  format: float
+                volume:
+                  type: integer
+                adjusted_close:
+                  type: number
+                  format: float
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        frequency:
+          type: string
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Portfolios
+    description: Portfolio management operations
+  - name: Optimization  
+    description: Portfolio optimization algorithms
+  - name: Market Data
+    description: Financial market data retrieval
+  - name: Analytics
+    description: Portfolio analytics and risk metrics

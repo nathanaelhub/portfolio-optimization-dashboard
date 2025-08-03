@@ -1,0 +1,97 @@
+# Codecov configuration for portfolio optimization dashboard
+
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+        base: auto
+        branches:
+          - main
+          - develop
+    patch:
+      default:
+        target: 85%
+        threshold: 5%
+        base: auto
+
+  precision: 2
+  round: down
+  range: "70...100"
+
+  ignore:
+    - "backend/app/migrations/"
+    - "backend/tests/"
+    - "frontend/src/tests/"
+    - "frontend/src/**/*.test.ts"
+    - "frontend/src/**/*.test.tsx"
+    - "frontend/src/**/*.spec.ts"
+    - "frontend/src/**/*.spec.tsx"
+    - "frontend/src/setupTests.ts"
+    - "frontend/src/reportWebVitals.ts"
+    - "e2e/"
+    - "**/*.d.ts"
+    - "**/node_modules/"
+    - "**/venv/"
+    - "**/__pycache__/"
+
+flags:
+  backend:
+    paths:
+      - backend/app/
+    carryforward: true
+    
+  frontend:
+    paths:
+      - frontend/src/
+    carryforward: true
+
+component_management:
+  individual_components:
+    - component_id: backend_optimization
+      name: Portfolio Optimization Engine
+      paths:
+        - backend/app/services/optimization.py
+        - backend/app/services/advanced_optimization.py
+      flag_regexes:
+        - backend
+      
+    - component_id: backend_analytics
+      name: Portfolio Analytics
+      paths:
+        - backend/app/services/portfolio_analytics.py
+      flag_regexes:
+        - backend
+        
+    - component_id: backend_data
+      name: Market Data Services
+      paths:
+        - backend/app/services/market_data.py
+        - backend/app/services/data_pipeline.py
+      flag_regexes:
+        - backend
+        
+    - component_id: frontend_components
+      name: React Components
+      paths:
+        - frontend/src/components/
+      flag_regexes:
+        - frontend
+        
+    - component_id: frontend_visualizations
+      name: Data Visualizations
+      paths:
+        - frontend/src/components/visualizations/
+      flag_regexes:
+        - frontend
+
+comment:
+  layout: "reach,diff,flags,tree,reach"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+  branches:
+    - main
+    - develop

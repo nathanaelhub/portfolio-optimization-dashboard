@@ -1,0 +1,6 @@
+Symbol,Name,Allocation,Shares,Price,Value,Sector,Asset Class,Expense Ratio
+VTI,Vanguard Total Stock Market ETF,0.25,115.5,216.45,25000.00,Broad Market,Equity,0.03%
+VXUS,Vanguard Total International Stock ETF,0.15,257.8,58.25,15000.00,International,Equity,0.08%
+BND,Vanguard Total Bond Market ETF,0.35,462.2,75.75,35000.00,Fixed Income,Bond,0.03%
+BNDX,Vanguard Total International Bond ETF,0.15,289.5,51.85,15000.00,International Fixed Income,Bond,0.08%
+VNQ,Vanguard Real Estate ETF,0.10,108.7,92.15,10000.00,Real Estate,REIT,0.12%

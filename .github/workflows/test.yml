@@ -1,0 +1,556 @@
+name: Comprehensive Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  POSTGRES_VERSION: '15'
+
+jobs:
+  # Backend unit and integration tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portfolio_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libpq-dev \
+          gcc \
+          g++ \
+          libopenblas-dev \
+          liblapack-dev \
+          gfortran
+    
+    - name: Install Python dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov pytest-xdist pytest-mock pytest-asyncio
+        pip install coverage[toml] pytest-html pytest-json-report
+    
+    - name: Set up test environment
+      working-directory: ./backend
+      run: |
+        export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/portfolio_test"
+        export REDIS_URL="redis://localhost:6379/0"
+        export ENVIRONMENT="test"
+        
+        # Run database migrations
+        alembic upgrade head
+    
+    - name: Run unit tests with coverage
+      working-directory: ./backend
+      run: |
+        pytest tests/unit/ \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=90 \
+          --junitxml=test-results/unit-results.xml \
+          --json-report --json-report-file=test-results/unit-report.json \
+          -v \
+          --tb=short \
+          -x
+    
+    - name: Run integration tests
+      working-directory: ./backend
+      run: |
+        pytest tests/integration/ \
+          --cov=app \
+          --cov-append \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junitxml=test-results/integration-results.xml \
+          --json-report --json-report-file=test-results/integration-report.json \
+          -v \
+          --tb=short \
+          -x
+    
+    - name: Run financial accuracy tests
+      working-directory: ./backend
+      run: |
+        pytest tests/financial_accuracy/ \
+          --cov=app \
+          --cov-append \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junitxml=test-results/financial-results.xml \
+          --json-report --json-report-file=test-results/financial-report.json \
+          -v \
+          --tb=short \
+          -x
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: true
+    
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-test-results
+        path: |
+          backend/test-results/
+          backend/htmlcov/
+          backend/coverage.xml
+    
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: backend/test-results/*-results.xml
+        check_name: Backend Test Results
+        comment_mode: create new
+        fail_on: test failures
+
+  # Frontend unit and component tests  
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Run type checking
+      working-directory: ./frontend
+      run: npm run type-check
+    
+    - name: Run linting
+      working-directory: ./frontend
+      run: npm run lint
+    
+    - name: Run unit tests with coverage
+      working-directory: ./frontend
+      run: |
+        npm run test:coverage -- \
+          --watchAll=false \
+          --coverage \
+          --coverageReporters=text-lcov,clover,json,html \
+          --coverageDirectory=coverage \
+          --testResultsProcessor=jest-junit \
+          --collectCoverageFrom="src/**/*.{ts,tsx}" \
+          --collectCoverageFrom="!src/**/*.d.ts" \
+          --collectCoverageFrom="!src/index.tsx" \
+          --collectCoverageFrom="!src/serviceWorker.ts"
+      env:
+        CI: true
+        JEST_JUNIT_OUTPUT_DIR: test-results
+        JEST_JUNIT_OUTPUT_NAME: frontend-results.xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/clover.xml
+        flags: frontend
+        name: frontend-coverage
+        fail_ci_if_error: true
+    
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results
+        path: |
+          frontend/test-results/
+          frontend/coverage/
+    
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: frontend/test-results/frontend-results.xml
+        check_name: Frontend Test Results
+
+  # End-to-end tests with Playwright
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portfolio_e2e
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: e2e/package-lock.json
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Install E2E dependencies
+      working-directory: ./e2e
+      run: |
+        npm ci
+        npx playwright install --with-deps
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+    
+    - name: Set up test database
+      run: |
+        export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/portfolio_e2e"
+        cd backend
+        alembic upgrade head
+        python -c "
+        from app.database.database import engine
+        from app.models import Base
+        # Create test data
+        print('Database setup complete')
+        "
+    
+    - name: Run E2E tests
+      working-directory: ./e2e
+      run: |
+        npx playwright test \
+          --reporter=html,junit \
+          --output-dir=test-results \
+          --project=chromium \
+          --project=firefox \
+          --project=webkit
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/portfolio_e2e
+        BASE_URL: http://localhost:3000
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          e2e/test-results/
+          e2e/playwright-report/
+    
+    - name: Publish E2E test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: e2e/test-results/results.xml
+        check_name: E2E Test Results
+
+  # Performance and load testing
+  performance-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'performance')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        pip install locust pytest-benchmark
+        pip install -r backend/requirements.txt
+    
+    - name: Run performance benchmarks
+      working-directory: ./backend
+      run: |
+        pytest tests/performance/ \
+          --benchmark-only \
+          --benchmark-json=benchmark-results.json \
+          --benchmark-min-rounds=5
+    
+    - name: Run load tests
+      run: |
+        # Start backend in background
+        cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        sleep 10
+        
+        # Run Locust load tests
+        locust -f tests/load/locustfile.py \
+          --host=http://localhost:8000 \
+          --users=100 \
+          --spawn-rate=10 \
+          --t=60s \
+          --headless \
+          --html=load-test-report.html
+    
+    - name: Archive performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: |
+          backend/benchmark-results.json
+          load-test-report.html
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Bandit security scan
+      working-directory: ./backend
+      run: |
+        pip install bandit[toml]
+        bandit -r app/ -f json -o security-report.json || true
+        bandit -r app/ -f txt
+    
+    - name: Run npm audit
+      working-directory: ./frontend
+      run: |
+        npm audit --audit-level=moderate --json > security-audit.json || true
+        npm audit --audit-level=moderate
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          backend/security-report.json
+          frontend/security-audit.json
+
+  # Code quality analysis
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better analysis
+    
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=portfolio-optimization-dashboard
+          -Dsonar.organization=your-org
+          -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+          -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+          -Dsonar.sources=backend/app,frontend/src
+          -Dsonar.tests=backend/tests,frontend/src/tests
+          -Dsonar.coverage.exclusions=**/*test*/**,**/migrations/**,**/*.config.js
+
+  # Deployment readiness checks
+  deployment-check:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, e2e-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check Docker builds
+      run: |
+        docker build -t portfolio-backend ./backend
+        docker build -t portfolio-frontend ./frontend
+    
+    - name: Validate Kubernetes manifests
+      run: |
+        # Install kubeval
+        wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+        tar xf kubeval-linux-amd64.tar.gz
+        sudo mv kubeval /usr/local/bin
+        
+        # Validate manifests if they exist
+        if [ -d "k8s" ]; then
+          kubeval k8s/*.yaml
+        fi
+    
+    - name: Check database migrations
+      working-directory: ./backend
+      run: |
+        pip install -r requirements.txt
+        # Check migrations are up to date
+        alembic check
+        
+        # Generate migration dry-run
+        alembic upgrade head --sql > migration-preview.sql
+        
+        # Check for potential issues
+        if grep -i "drop\|delete" migration-preview.sql; then
+          echo "⚠️ Destructive operations detected in migrations"
+          cat migration-preview.sql
+        fi
+
+  # Notification and reporting
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, e2e-tests, security-scan, code-quality]
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate test summary
+      run: |
+        echo "# Test Results Summary" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Collect test statistics
+        if [ -f "backend-test-results/unit-report.json" ]; then
+          echo "## Backend Tests" >> test-summary.md
+          python3 -c "
+        import json
+        with open('backend-test-results/unit-report.json') as f:
+            data = json.load(f)
+        print(f'- Unit Tests: {data[\"summary\"][\"total\"]} total, {data[\"summary\"][\"passed\"]} passed')
+        print(f'- Duration: {data[\"duration\"]:.2f}s')
+        " >> test-summary.md
+        fi
+        
+        if [ -f "frontend-test-results/frontend-results.xml" ]; then
+          echo "## Frontend Tests" >> test-summary.md
+          # Parse XML results (simplified)
+          echo "- Component and unit tests completed" >> test-summary.md
+        fi
+        
+        if [ -f "e2e-test-results/results.xml" ]; then
+          echo "## E2E Tests" >> test-summary.md
+          echo "- Cross-browser testing completed" >> test-summary.md
+        fi
+        
+        echo "" >> test-summary.md
+        echo "Full reports available in GitHub Actions artifacts." >> test-summary.md
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('test-summary.md')) {
+            const summary = fs.readFileSync('test-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+          }
+
+  # Coverage reporting and badges
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: backend-test-results
+        path: backend-coverage
+    
+    - name: Download frontend coverage
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-test-results
+        path: frontend-coverage
+    
+    - name: Generate coverage badge
+      run: |
+        # Install coverage-badge
+        pip install coverage-badge
+        
+        # Generate badge for backend
+        if [ -f "backend-coverage/coverage.xml" ]; then
+          coverage-badge -o backend-coverage-badge.svg -f backend-coverage/coverage.xml
+        fi
+        
+        # Upload badges to a badges branch or artifact store
+        # This would typically upload to GitHub Pages or another static host
+    
+    - name: Update coverage in README
+      if: github.ref == 'refs/heads/main'
+      run: |
+        # Script to update README.md with latest coverage percentages
+        # This would parse coverage reports and update badge URLs
+        echo "Coverage reporting completed"

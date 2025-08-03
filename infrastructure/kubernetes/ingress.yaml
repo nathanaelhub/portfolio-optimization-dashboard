@@ -1,0 +1,347 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio-ingress
+  namespace: portfolio-system
+  annotations:
+    # NGINX Ingress Controller
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # SSL/TLS Configuration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES256-SHA384"
+    
+    # Rate Limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "10"
+    
+    # CORS Configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://portfolio-dashboard.com,https://www.portfolio-dashboard.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
+    
+    # Security Headers
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.portfolio-dashboard.com wss://api.portfolio-dashboard.com; frame-ancestors 'self';" always;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    
+    # Load Balancing
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$binary_remote_addr"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    
+    # Request/Response Size Limits
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/client-max-body-size: "50m"
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    
+    # Compression
+    nginx.ingress.kubernetes.io/use-gzip: "true"
+    nginx.ingress.kubernetes.io/gzip-level: "6"
+    nginx.ingress.kubernetes.io/gzip-types: "text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript"
+
+spec:
+  tls:
+  - hosts:
+    - portfolio-dashboard.com
+    - www.portfolio-dashboard.com
+    - api.portfolio-dashboard.com
+    secretName: portfolio-tls-secret
+  
+  rules:
+  # Main Frontend
+  - host: portfolio-dashboard.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portfolio-frontend-service
+            port:
+              number: 80
+  
+  # WWW Redirect (handled by frontend service)
+  - host: www.portfolio-dashboard.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portfolio-frontend-service
+            port:
+              number: 80
+  
+  # API Backend
+  - host: api.portfolio-dashboard.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portfolio-backend-service
+            port:
+              number: 80
+
+---
+# Separate ingress for internal services (monitoring, etc.)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio-internal-ingress
+  namespace: portfolio-system
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+    # IP Whitelist for internal services
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    
+    # Basic Auth for additional security
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Portfolio Monitoring - Authentication Required"
+
+spec:
+  tls:
+  - hosts:
+    - monitoring.portfolio-dashboard.com
+    - logs.portfolio-dashboard.com
+    secretName: portfolio-internal-tls-secret
+  
+  rules:
+  # Grafana Dashboard
+  - host: monitoring.portfolio-dashboard.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-service
+            port:
+              number: 3000
+  
+  # Kibana Logs
+  - host: logs.portfolio-dashboard.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kibana-service
+            port:
+              number: 5601
+
+---
+# Certificate Issuer for Let's Encrypt
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@portfolio-dashboard.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-private-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+
+---
+# Basic Auth Secret for Internal Services
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-auth
+  namespace: portfolio-system
+type: Opaque
+data:
+  auth: YWRtaW46JGFwcjEkSDZ1c2k2Qkp0TkNxeEd5MmRDVWppVWVyZUVGV0F4ME8=  # admin:monitoring_password (bcrypt)
+
+---
+# Network Policy for Ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingress-netpol
+  namespace: portfolio-system
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx-ingress
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from: []  # Allow from anywhere (internet)
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: portfolio-frontend
+    ports:
+    - protocol: TCP
+      port: 3000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: portfolio-backend
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: grafana
+    ports:
+    - protocol: TCP
+      port: 3000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: kibana
+    ports:
+    - protocol: TCP
+      port: 5601
+
+---
+# Service Monitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nginx-ingress-monitor
+  namespace: portfolio-system
+  labels:
+    app: nginx-ingress
+spec:
+  selector:
+    matchLabels:
+      app: nginx-ingress
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+
+---
+# NGINX Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: nginx-ingress
+data:
+  # Global NGINX settings
+  use-gzip: "true"
+  gzip-level: "6"
+  gzip-types: "text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm"
+  
+  # Connection settings
+  keep-alive: "75"
+  keep-alive-requests: "1000"
+  upstream-keepalive-connections: "320"
+  upstream-keepalive-requests: "10000"
+  upstream-keepalive-timeout: "60"
+  
+  # Buffer settings
+  proxy-buffer-size: "16k"
+  proxy-buffers-number: "8"
+  client-header-buffer-size: "64k"
+  large-client-header-buffers: "4 64k"
+  
+  # Security settings
+  hide-headers: "Server,X-Powered-By"
+  server-tokens: "false"
+  
+  # Rate limiting
+  limit-req-status-code: "429"
+  limit-conn-status-code: "503"
+  
+  # Real IP settings
+  use-forwarded-headers: "true"
+  compute-full-forwarded-for: "true"
+  use-proxy-protocol: "false"
+  
+  # SSL settings
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+  ssl-prefer-server-ciphers: "true"
+  ssl-session-cache: "shared:SSL:10m"
+  ssl-session-timeout: "10m"
+  
+  # Performance settings
+  worker-processes: "auto"
+  max-worker-connections: "16384"
+  worker-rlimit-nofile: "65536"
+  
+  # Custom log format for better monitoring
+  log-format-upstream: >-
+    $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent
+    "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name]
+    [$proxy_alternative_upstream_name] $upstream_addr $upstream_response_length
+    $upstream_response_time $upstream_status $req_id $host
+
+---
+# HPA for NGINX Ingress Controller
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-ingress-hpa
+  namespace: nginx-ingress
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-ingress-controller
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60

@@ -1,0 +1,7 @@
+Symbol,Name,Allocation,Shares,Price,Value,Sector,ESG Score,Asset Class
+ESGU,iShares MSCI USA ESG Select ETF,0.30,516.2,101.85,52500.00,ESG US Equity,8.5,Equity
+ESGD,iShares MSCI EAFE ESG Select ETF,0.20,684.9,51.25,35000.00,ESG International,8.2,Equity
+ICLN,iShares Global Clean Energy ETF,0.15,1205.4,21.85,26250.00,Clean Energy,9.1,Equity
+ESGE,iShares MSCI EM ESG Select ETF,0.10,587.3,29.85,17500.00,ESG Emerging Markets,7.8,Equity
+SUSL,iShares MSCI KLD 400 Social ETF,0.15,398.7,65.95,26250.00,Social Responsibility,8.7,Equity
+EAGG,iShares ESG Aware USD Corporate Bond ETF,0.10,324.8,54.05,17500.00,ESG Fixed Income,7.9,Bond

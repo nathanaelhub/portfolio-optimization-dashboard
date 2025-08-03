@@ -1,0 +1,8 @@
+Symbol,Name,Allocation,Shares,Price,Value,Sector,Asset Class,Dividend Yield
+VYM,Vanguard High Dividend Yield ETF,0.25,285.7,109.25,31250.00,High Dividend,Equity,2.85%
+SCHD,Schwab US Dividend Equity ETF,0.20,323.8,77.65,25000.00,Dividend Growth,Equity,3.12%
+JNJ,Johnson & Johnson,0.08,62.4,160.45,10000.00,Healthcare,Equity,2.98%
+PG,Procter & Gamble Co.,0.07,58.9,149.85,8750.00,Consumer Staples,Equity,2.45%
+KO,The Coca-Cola Company,0.06,103.2,58.25,7500.00,Consumer Staples,Equity,3.05%
+VNQ,Vanguard Real Estate ETF,0.15,203.7,92.15,18750.00,Real Estate,REIT,3.78%
+VTEB,Vanguard Tax-Exempt Bond ETF,0.19,456.8,52.35,23750.00,Municipal Bonds,Bond,3.45%
