@@ -1,6 +1,71 @@
 -- Initialize Portfolio Optimization Database
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Create tables first
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS portfolios (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    total_value DECIMAL(15,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stock_info (
+    symbol VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    sector VARCHAR(100),
+    industry VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS holdings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID REFERENCES portfolios(id) ON DELETE CASCADE,
+    symbol VARCHAR(20) REFERENCES stock_info(symbol),
+    quantity DECIMAL(15,4) NOT NULL,
+    purchase_price DECIMAL(10,4),
+    current_price DECIMAL(10,4),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS market_data (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    symbol VARCHAR(20) NOT NULL,
+    date DATE NOT NULL,
+    open_price DECIMAL(10,4),
+    high_price DECIMAL(10,4),
+    low_price DECIMAL(10,4),
+    close_price DECIMAL(10,4),
+    volume BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(symbol, date)
+);
+
+CREATE TABLE IF NOT EXISTS optimization_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID REFERENCES portfolios(id) ON DELETE CASCADE,
+    optimization_type VARCHAR(50) NOT NULL,
+    expected_return DECIMAL(8,6),
+    volatility DECIMAL(8,6),
+    sharpe_ratio DECIMAL(8,6),
+    weights JSONB,
+    constraints JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_market_data_symbol_date ON market_data(symbol, date);
 CREATE INDEX IF NOT EXISTS idx_holdings_portfolio_id ON holdings(portfolio_id);

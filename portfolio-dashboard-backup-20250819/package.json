@@ -11,11 +11,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "autoprefixer": "^10.4.16",
     "d3": "^7.9.0",
+    "framer-motion": "^12.23.12",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "postcss": "^8.4.31",
@@ -26,12 +30,16 @@
     "tailwindcss": "^3.3.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/react": "^14.1.0",
+    "@testing-library/user-event": "^14.5.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "@vitejs/plugin-react": "^4.1.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^8.53.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "^2.29.0",
@@ -44,6 +52,7 @@
     "msw": "^2.0.0",
     "prettier": "^3.1.0",
     "typescript": "^5.2.2",
-    "vite": "^7.0.6"
+    "vite": "^7.0.6",
+    "vitest": "^3.2.4"
   }
 }

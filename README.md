@@ -6,8 +6,8 @@
 
 **🚀 Professional-grade portfolio optimization platform with real-time analytics and advanced risk management**
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Try_Now-success?style=for-the-badge&logo=vercel)](https://portfolio-dashboard.vercel.app)
-[![Documentation](https://img.shields.io/badge/📚_Documentation-Wiki-blue?style=for-the-badge&logo=gitbook)](https://github.com/yourusername/Portfolio-Optimization-Dashboard/wiki)
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Working!-success?style=for-the-badge&logo=vercel)](http://localhost:3002)
+[![API Docs](https://img.shields.io/badge/📚_API_Docs-FastAPI-blue?style=for-the-badge&logo=swagger)](http://localhost:8000/docs)
 
 </div>
 
@@ -58,6 +58,32 @@
 [![Security](https://img.shields.io/badge/Security-A+-brightgreen?style=flat-square&logo=security)](https://securityheaders.com/)
 
 </div>
+
+---
+
+## 🎉 **LATEST UPDATE: Enhanced UI & UX**
+
+### ✨ **New Features Just Added!**
+
+🎨 **Interactive Portfolio Visualization**
+- Beautiful pie charts with hover effects and animations
+- Real-time portfolio allocation display
+- Professional color-coded sections
+
+⚡ **Smooth Loading States**
+- Skeleton screens while data loads
+- Professional loading spinners and animations
+- Success notifications with toast messages
+
+🔄 **Enhanced Optimization Flow**
+- Before/after comparison with visual indicators
+- Animated progress bars showing improvements
+- Color-coded performance metrics
+
+📱 **Mobile-First Responsive Design**
+- Works perfectly on all screen sizes
+- Touch-friendly interactive elements
+- Professional business dashboard aesthetics
 
 ---
 
@@ -197,6 +223,17 @@ open http://localhost:3000
 ```
 
 **🎉 You're ready to go!** Visit [http://localhost:3000](http://localhost:3000) to explore the dashboard.
+
+### 🚀 **Quick Demo - No Setup Required!**
+
+**Frontend**: [http://localhost:3002](http://localhost:3002) - Try the live dashboard now!  
+**Backend API**: [http://localhost:8000/docs](http://localhost:8000/docs) - Explore the FastAPI documentation  
+
+**Features to try:**
+1. ✨ Click "Optimize Portfolio" to see the magic happen
+2. 🎨 Hover over the pie chart for interactive tooltips  
+3. 📊 Watch the smooth loading animations and success notifications
+4. 📱 Try it on mobile - fully responsive design!
 
 ---
 

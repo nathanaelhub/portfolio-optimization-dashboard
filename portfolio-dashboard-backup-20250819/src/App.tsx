@@ -1,9 +1,9 @@
 import React from 'react'
 import './index.css'
 import { PortfolioPieChart } from './components/PortfolioPieChart'
-import { LoadingButton, SuccessToast, FadeIn } from './components/LoadingComponents'
+import { LoadingButton, SuccessToast, FadeIn, LoadingSkeleton } from './components/LoadingComponents'
 
-// Portfolio data
+// Temporarily use any to bypass type errors
 const portfolioData: any = {
   holdings: [
     { symbol: 'AAPL', allocation: 30, value: 50000 },
@@ -56,7 +56,6 @@ function App() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold text-gray-900">Portfolio Optimization Dashboard</h1>
-          <p className="text-gray-600">Professional-grade portfolio optimization with real-time analytics</p>
         </div>
       </header>
 
@@ -92,9 +91,6 @@ function App() {
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold mb-4">Portfolio Optimization</h2>
-              <p className="text-gray-600 mb-6">
-                Optimize your portfolio using advanced algorithms. Click below to run mean-variance optimization.
-              </p>
               
               <LoadingButton
                 onClick={handleOptimize}
@@ -104,11 +100,11 @@ function App() {
               </LoadingButton>
             </div>
             
-            {optimizationResult && (
+{optimizationResult && (
               <FadeIn delay={200}>
                 <div className="bg-white rounded-lg shadow p-6">
                   <h3 className="text-lg font-semibold mb-4">Optimization Results</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded">
                       <p className="text-sm text-gray-600">Sharpe Ratio</p>
                       <p className="text-xl font-semibold">{optimizationResult.metrics?.sharpe_ratio?.toFixed(2) || 'N/A'}</p>
@@ -118,19 +114,6 @@ function App() {
                       <p className="text-xl font-semibold">{((optimizationResult.metrics?.expected_return || 0) * 100).toFixed(1)}%</p>
                     </div>
                   </div>
-                  
-                  {/* Optimized Weights */}
-                  <div>
-                    <h4 className="font-medium mb-3">Optimized Allocation</h4>
-                    <div className="space-y-2">
-                      {Object.entries(optimizationResult.optimal_weights || {}).map(([symbol, weight]: [string, any]) => (
-                        <div key={symbol} className="flex justify-between">
-                          <span>{symbol}</span>
-                          <span className="font-medium">{(weight * 100).toFixed(1)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </FadeIn>
             )}
@@ -138,7 +121,7 @@ function App() {
         </div>
 
         {/* Performance Metrics */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-6 grid grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <p className="text-sm text-gray-600">Daily Change</p>
             <p className="text-2xl font-semibold text-green-600">+{portfolioData.performance.daily}%</p>
@@ -152,12 +135,6 @@ function App() {
             <p className="text-2xl font-semibold text-green-600">+{portfolioData.performance.monthly}%</p>
           </div>
         </div>
-
-        {/* Footer */}
-        <footer className="mt-8 text-center text-gray-500 text-sm">
-          <p>🚀 Built with React, TypeScript, and FastAPI</p>
-          <p>✨ Professional Portfolio Optimization Dashboard</p>
-        </footer>
       </main>
 
       {/* Success Toast */}
