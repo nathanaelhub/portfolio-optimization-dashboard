@@ -6,6 +6,7 @@ export { default as PortfolioAllocationCharts } from './PortfolioAllocationChart
 export { default as PerformanceAnalytics } from './PerformanceAnalytics';
 export { default as RiskVisualizations } from './RiskVisualizations';
 export { default as RealTimeDashboard } from './RealTimeDashboard';
+export { default as PortfolioPieChart } from './PortfolioPieChart';
 
 // Interactive Features and Utilities
 export {
