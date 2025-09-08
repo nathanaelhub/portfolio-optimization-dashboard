@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 import time
 import logging
+import os
 from contextlib import asynccontextmanager
 from app.routers import portfolio_v2, assets, ml_predictions, auth
 from app.database.connection import create_tables, test_db_connection, test_redis_connection
@@ -97,13 +98,15 @@ app.add_middleware(
 )
 
 # CORS middleware
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+cors_origins.extend([
+    "https://portfolio-optimization-dashboard.vercel.app",
+    "https://portfolio-optimizer.vercel.app"
+])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://portfolio-optimization-dashboard.vercel.app"
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],

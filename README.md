@@ -2,14 +2,40 @@
 
 <div align="center">
 
-![Portfolio Optimization Dashboard](https://raw.githubusercontent.com/yourusername/Portfolio-Optimization-Dashboard/main/docs/assets/hero-demo.gif)
-
 **🚀 Professional-grade portfolio optimization platform with real-time analytics and advanced risk management**
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Working!-success?style=for-the-badge&logo=vercel)](http://localhost:3002)
-[![API Docs](https://img.shields.io/badge/📚_API_Docs-FastAPI-blue?style=for-the-badge&logo=swagger)](http://localhost:8000/docs)
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Vercel-success?style=for-the-badge&logo=vercel)](https://portfolio-optimization-dashboard.vercel.app)
+[![API Docs](https://img.shields.io/badge/📚_API_Docs-FastAPI-blue?style=for-the-badge&logo=swagger)](https://portfolio-optimizer-api.onrender.com/docs)
+[![Frontend](https://img.shields.io/badge/Frontend-React_+_TypeScript-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI_+_Python-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 
 </div>
+
+---
+
+## ✨ Key Features
+
+🎯 **Multiple Optimization Strategies**
+- Equal Weight (1/N portfolio)
+- Maximum Sharpe Ratio (Mean-Variance)
+- Minimum Volatility optimization
+
+📊 **Interactive Visualizations**
+- Portfolio allocation pie charts with hover effects
+- 12-month growth trend line chart
+- Real-time metrics dashboard
+
+⚡ **Performance Metrics**
+- Sharpe Ratio for risk-adjusted returns
+- Annual Volatility measurement
+- Expected Return projections
+- Maximum Drawdown analysis
+
+🎨 **Modern User Experience**
+- Clean, professional interface
+- Smooth animations and loading states
+- Mobile-first responsive design
+- Toast notifications for user feedback
 
 ---
 
@@ -180,13 +206,28 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Live Demo
+
+### 🌐 **Try it Now - No Setup Required!**
+
+**Live Application**: [https://portfolio-optimization-dashboard.vercel.app](https://portfolio-optimization-dashboard.vercel.app)  
+**API Documentation**: [https://portfolio-optimizer-api.onrender.com/docs](https://portfolio-optimizer-api.onrender.com/docs)
+
+**✨ Key Features to Try:**
+1. **Strategy Selection**: Choose from Equal Weight, Maximum Sharpe Ratio, or Minimum Volatility
+2. **Interactive Charts**: Hover over pie charts and explore portfolio growth over 12 months
+3. **Real-time Optimization**: See portfolio metrics update in under 2 seconds
+4. **Comprehensive Metrics**: View Sharpe Ratio, Volatility, Expected Return, and Max Drawdown
+5. **Mobile Responsive**: Works perfectly on all devices
+
+---
+
+## 🏗️ Local Development
 
 ### Prerequisites
-- Docker & Docker Compose
 - Node.js 18+
 - Python 3.11+
-- PostgreSQL 15+
+- npm or yarn
 
 ### 1. Clone Repository
 ```bash
@@ -194,46 +235,25 @@ git clone https://github.com/yourusername/Portfolio-Optimization-Dashboard.git
 cd Portfolio-Optimization-Dashboard
 ```
 
-### 2. Environment Setup
+### 2. Backend Setup
 ```bash
-# Copy environment templates
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# Configure your API keys
-nano backend/.env  # Add your market data API keys
+cd backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 3. Launch with Docker
+### 3. Frontend Setup
 ```bash
-# Start all services
-docker-compose up -d
-
-# Wait for services to be ready (30-60 seconds)
-docker-compose logs -f
-
-# Access the application
-open http://localhost:3000
+cd frontend
+npm install
+npm run dev
 ```
 
-### 4. Demo Data (Optional)
-```bash
-# Create sample portfolios
-./scripts/demo_setup.sh
-```
+### 4. Access Application
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-**🎉 You're ready to go!** Visit [http://localhost:3000](http://localhost:3000) to explore the dashboard.
-
-### 🚀 **Quick Demo - No Setup Required!**
-
-**Frontend**: [http://localhost:3002](http://localhost:3002) - Try the live dashboard now!  
-**Backend API**: [http://localhost:8000/docs](http://localhost:8000/docs) - Explore the FastAPI documentation  
-
-**Features to try:**
-1. ✨ Click "Optimize Portfolio" to see the magic happen
-2. 🎨 Hover over the pie chart for interactive tooltips  
-3. 📊 Watch the smooth loading animations and success notifications
-4. 📱 Try it on mobile - fully responsive design!
+**🎉 You're ready to develop!** The application runs with mock data by default.
 
 ---
 
@@ -305,26 +325,47 @@ k6 run tests/load/portfolio-optimization.js
 
 ## 🌍 Deployment
 
-### Production Deployment
+This application is production-ready and deployed on modern cloud platforms:
+
+### Frontend (Vercel)
 ```bash
-# Deploy to AWS with Terraform
-cd infrastructure/terraform/aws
-terraform init && terraform apply
-
-# Deploy to Kubernetes
-kubectl apply -f infrastructure/kubernetes/
-
-# Monitor deployment
-kubectl get pods -n portfolio-system
+cd frontend
+npm run build
+# Deploy via Vercel CLI or GitHub integration
+vercel --prod
 ```
 
-### Platform Support
-- **AWS**: EKS, RDS, ElastiCache, S3, CloudWatch
-- **GCP**: GKE, Cloud SQL, Memorystore, Cloud Storage
-- **Azure**: AKS, Azure Database, Redis Cache, Blob Storage
-- **Frontend**: Vercel, Netlify, AWS CloudFront
+### Backend (Render)
+```bash
+# Option 1: Deploy via render.yaml (recommended)
+# Push to GitHub and connect on render.com
 
-📖 **Detailed deployment guide**: [Production Deployment Guide](docs/deployment/PRODUCTION_DEPLOYMENT_GUIDE.md)
+# Option 2: Manual deployment
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+### Environment Variables
+**Frontend (.env)**
+```bash
+VITE_API_URL=https://your-backend-url.onrender.com
+```
+
+**Backend (Render Dashboard)**
+```bash
+CORS_ORIGINS=https://your-frontend-url.vercel.app
+DATABASE_URL=postgresql://user:pass@host:5432/db
+SECRET_KEY=your-secret-key
+```
+
+### Production Features
+- ✅ **Optimized builds** with code splitting
+- ✅ **Environment-based configuration**
+- ✅ **CORS protection** for cross-origin requests  
+- ✅ **Rate limiting** and security middleware
+- ✅ **Error handling** and logging
+- ✅ **Mobile responsive** design
 
 ---
 

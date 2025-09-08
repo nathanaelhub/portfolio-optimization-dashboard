@@ -1,6 +1,8 @@
 import React from 'react'
 import './index.css'
 import { PortfolioPieChart } from './components/PortfolioPieChart'
+import { PortfolioGrowthChart } from './components/PortfolioGrowthChart'
+import { MetricsGrid } from './components/MetricsGrid'
 import { LoadingButton, SuccessToast, FadeIn } from './components/LoadingComponents'
 
 // Portfolio data
@@ -23,17 +25,19 @@ function App() {
   const [loading, setLoading] = React.useState(false);
   const [optimizationResult, setOptimizationResult] = React.useState<any>(null);
   const [showSuccessToast, setShowSuccessToast] = React.useState(false);
+  const [selectedStrategy, setSelectedStrategy] = React.useState('mean_variance');
 
   const handleOptimize = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/portfolio/optimize', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/portfolio/optimize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           holdings: portfolioData.holdings,
           risk_tolerance: 5,
-          method: 'mean_variance'
+          method: selectedStrategy
         })
       });
       const data = await response.json();
@@ -43,7 +47,12 @@ function App() {
       // Use mock data if backend fails
       setOptimizationResult({
         optimal_weights: { AAPL: 0.35, GOOGL: 0.25, MSFT: 0.25, AMZN: 0.15 },
-        metrics: { sharpe_ratio: 1.45, volatility: 0.18, expected_return: 0.12 }
+        metrics: { 
+          sharpe_ratio: 1.45, 
+          volatility: 0.18, 
+          expected_return: 0.12,
+          max_drawdown: 0.08
+        }
       });
     }
     setLoading(false);
@@ -93,8 +102,25 @@ function App() {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold mb-4">Portfolio Optimization</h2>
               <p className="text-gray-600 mb-6">
-                Optimize your portfolio using advanced algorithms. Click below to run mean-variance optimization.
+                Select an optimization strategy and click to optimize your portfolio.
               </p>
+              
+              {/* Strategy Selector */}
+              <div className="mb-6">
+                <label htmlFor="strategy-selector" className="block text-sm font-medium text-gray-700 mb-2">
+                  Optimization Strategy
+                </label>
+                <select
+                  id="strategy-selector"
+                  value={selectedStrategy}
+                  onChange={(e) => setSelectedStrategy(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="equal_weight">Equal Weight (1/N portfolio)</option>
+                  <option value="mean_variance">Maximum Sharpe Ratio</option>
+                  <option value="min_volatility">Minimum Volatility</option>
+                </select>
+              </div>
               
               <LoadingButton
                 onClick={handleOptimize}
@@ -108,15 +134,11 @@ function App() {
               <FadeIn delay={200}>
                 <div className="bg-white rounded-lg shadow p-6">
                   <h3 className="text-lg font-semibold mb-4">Optimization Results</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="p-4 bg-gray-50 rounded">
-                      <p className="text-sm text-gray-600">Sharpe Ratio</p>
-                      <p className="text-xl font-semibold">{optimizationResult.metrics?.sharpe_ratio?.toFixed(2) || 'N/A'}</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded">
-                      <p className="text-sm text-gray-600">Expected Return</p>
-                      <p className="text-xl font-semibold">{((optimizationResult.metrics?.expected_return || 0) * 100).toFixed(1)}%</p>
-                    </div>
+                  
+                  {/* Portfolio Metrics */}
+                  <div className="mb-6">
+                    <h4 className="font-medium mb-3">Portfolio Metrics</h4>
+                    <MetricsGrid metrics={optimizationResult.metrics || {}} />
                   </div>
                   
                   {/* Optimized Weights */}
@@ -135,6 +157,11 @@ function App() {
               </FadeIn>
             )}
           </div>
+        </div>
+
+        {/* Portfolio Growth Chart */}
+        <div className="mt-6">
+          <PortfolioGrowthChart />
         </div>
 
         {/* Performance Metrics */}

@@ -6,7 +6,7 @@ import redis
 from typing import Generator
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://portfolio_user:portfolio_password@localhost:5432/portfolio_optimization")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/portfolio_db")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # SQLAlchemy setup
@@ -38,8 +38,9 @@ def create_tables():
 def test_db_connection():
     """Test database connection"""
     try:
+        from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
         print(f"Database connection failed: {e}")
