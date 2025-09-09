@@ -13,7 +13,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      input: 'public/index.html'
+      input: 'index.html'
     }
   },
   resolve: {

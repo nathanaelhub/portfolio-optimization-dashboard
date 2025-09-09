@@ -4,55 +4,85 @@ import { PortfolioPieChart } from './components/PortfolioPieChart'
 import { PortfolioGrowthChart } from './components/PortfolioGrowthChart'
 import { MetricsGrid } from './components/MetricsGrid'
 import { LoadingButton, SuccessToast, FadeIn } from './components/LoadingComponents'
+import { StockSelector } from './components/StockSelector'
 
-// Portfolio data
-const portfolioData: any = {
-  holdings: [
-    { symbol: 'AAPL', allocation: 30, value: 50000 },
-    { symbol: 'GOOGL', allocation: 25, value: 41667 },
-    { symbol: 'MSFT', allocation: 25, value: 41667 },
-    { symbol: 'AMZN', allocation: 20, value: 33333 }
-  ],
-  totalValue: 166667,
-  performance: {
-    daily: 2.3,
-    weekly: 5.1,
-    monthly: 8.7
-  }
-};
+interface SelectedStock {
+  symbol: string;
+  name: string;
+  allocation: number;
+  sector?: string;
+}
 
 function App() {
   const [loading, setLoading] = React.useState(false);
   const [optimizationResult, setOptimizationResult] = React.useState<any>(null);
   const [showSuccessToast, setShowSuccessToast] = React.useState(false);
   const [selectedStrategy, setSelectedStrategy] = React.useState('mean_variance');
+  const [selectedStocks, setSelectedStocks] = React.useState<SelectedStock[]>([
+    { symbol: 'AAPL', name: 'Apple Inc.', allocation: 30, sector: 'Technology' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', allocation: 25, sector: 'Technology' },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', allocation: 25, sector: 'Technology' },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', allocation: 20, sector: 'Technology' }
+  ]);
+
+  const portfolioData = React.useMemo(() => ({
+    holdings: selectedStocks.map(stock => ({
+      symbol: stock.symbol,
+      allocation: stock.allocation,
+      value: stock.allocation * 1000 // Mock value calculation
+    })),
+    totalValue: selectedStocks.reduce((sum, stock) => sum + (stock.allocation * 1000), 0),
+    performance: {
+      daily: 2.3,
+      weekly: 5.1,
+      monthly: 8.7
+    }
+  }), [selectedStocks]);
 
   const handleOptimize = async () => {
+    if (selectedStocks.length === 0) {
+      alert('Please select at least one stock to optimize');
+      return;
+    }
+
     setLoading(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/portfolio/optimize`, {
+      const response = await fetch(`${apiUrl}/api/portfolio/optimize-demo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          holdings: portfolioData.holdings,
+          holdings: selectedStocks.map(stock => ({ symbol: stock.symbol, allocation: stock.allocation })),
           risk_tolerance: 5,
           method: selectedStrategy
         })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       setOptimizationResult(data);
+      console.log('Optimization result:', data);
     } catch (error) {
       console.error('Optimization failed:', error);
       // Use mock data if backend fails
+      const mockWeights = selectedStocks.reduce((acc, stock, index) => {
+        acc[stock.symbol] = [0.35, 0.25, 0.25, 0.15][index] || (1 / selectedStocks.length);
+        return acc;
+      }, {} as Record<string, number>);
+      
       setOptimizationResult({
-        optimal_weights: { AAPL: 0.35, GOOGL: 0.25, MSFT: 0.25, AMZN: 0.15 },
+        optimal_weights: mockWeights,
         metrics: { 
           sharpe_ratio: 1.45, 
           volatility: 0.18, 
           expected_return: 0.12,
           max_drawdown: 0.08
-        }
+        },
+        status: 'demo_fallback',
+        explanation: 'Using fallback data due to API error'
       });
     }
     setLoading(false);
@@ -71,30 +101,49 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Stock Selection */}
+        <div className="mb-8">
+          <StockSelector 
+            selectedStocks={selectedStocks} 
+            onSelectionChange={setSelectedStocks} 
+          />
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Current Portfolio */}
           <div className="lg:col-span-1 space-y-6">
             {/* Portfolio Holdings List */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold mb-4">Current Portfolio</h2>
-              <div className="space-y-3">
-                {portfolioData.holdings.map((holding: any) => (
-                  <div key={holding.symbol} className="flex justify-between items-center">
-                    <span className="font-medium">{holding.symbol}</span>
-                    <span className="text-gray-600">{holding.allocation}%</span>
+              {portfolioData.holdings.length > 0 ? (
+                <>
+                  <div className="space-y-3">
+                    {portfolioData.holdings.map((holding: any) => (
+                      <div key={holding.symbol} className="flex justify-between items-center">
+                        <span className="font-medium">{holding.symbol}</span>
+                        <span className="text-gray-600">{holding.allocation.toFixed(1)}%</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="mt-6 pt-6 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Value</span>
-                  <span className="font-semibold">${portfolioData.totalValue.toLocaleString()}</span>
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Value</span>
+                      <span className="font-semibold">${portfolioData.totalValue.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">No stocks selected</p>
+                  <p className="text-xs mt-1">Add stocks above to see your portfolio</p>
                 </div>
-              </div>
+              )}
             </div>
             
             {/* Portfolio Pie Chart */}
-            <PortfolioPieChart holdings={portfolioData.holdings} />
+            {portfolioData.holdings.length > 0 && (
+              <PortfolioPieChart holdings={portfolioData.holdings} />
+            )}
           </div>
 
           {/* Optimization Section */}
@@ -117,7 +166,7 @@ function App() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="equal_weight">Equal Weight (1/N portfolio)</option>
-                  <option value="mean_variance">Maximum Sharpe Ratio</option>
+                  <option value="mean_variance">Maximum Sharpe Ratio (Mean Variance)</option>
                   <option value="min_volatility">Minimum Volatility</option>
                 </select>
               </div>
@@ -152,6 +201,21 @@ function App() {
                         </div>
                       ))}
                     </div>
+                    
+                    {/* Strategy Explanation */}
+                    {optimizationResult.explanation && (
+                      <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                        <p className="text-sm text-blue-800">{optimizationResult.explanation}</p>
+                      </div>
+                    )}
+                    
+                    {/* Confidence Score */}
+                    {optimizationResult.confidence_score && (
+                      <div className="mt-2 flex justify-between text-sm">
+                        <span>Confidence Score:</span>
+                        <span className="font-medium">{(optimizationResult.confidence_score * 100).toFixed(0)}%</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </FadeIn>

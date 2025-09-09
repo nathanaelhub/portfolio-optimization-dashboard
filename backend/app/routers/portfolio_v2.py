@@ -560,3 +560,74 @@ async def get_correlation_matrix(
             status_code=500,
             detail=f"Correlation analysis failed: {str(e)}"
         )
+
+
+@router.post(
+    "/optimize-demo",
+    summary="Demo Portfolio Optimization",
+    description="""
+    Demo version of portfolio optimization without authentication requirements.
+    Perfect for testing and demonstrations.
+    """
+)
+@limiter.limit("10/minute")
+async def optimize_portfolio_demo(
+    request: Request,
+    optimization_request: dict
+) -> dict:
+    """Demo portfolio optimization without authentication."""
+    
+    try:
+        # Extract symbols from the request
+        holdings = optimization_request.get('holdings', [])
+        symbols = [holding.get('symbol') for holding in holdings if holding.get('symbol')]
+        method = optimization_request.get('method', 'mean_variance')
+        
+        # Return mock optimization results based on method
+        if method == 'equal_weight':
+            # Equal weight allocation
+            weight_per_asset = 1.0 / len(symbols) if symbols else 0
+            optimal_weights = {symbol: weight_per_asset for symbol in symbols}
+        elif method == 'min_volatility':
+            # Mock min volatility weights (conservative)
+            weights = [0.4, 0.3, 0.2, 0.1] if len(symbols) >= 4 else [1/len(symbols)] * len(symbols)
+            optimal_weights = {symbol: weight for symbol, weight in zip(symbols, weights)}
+        else:
+            # Default mean variance optimization (mock)
+            weights = [0.35, 0.25, 0.25, 0.15] if len(symbols) >= 4 else [1/len(symbols)] * len(symbols)
+            optimal_weights = {symbol: weight for symbol, weight in zip(symbols, weights)}
+        
+        # Mock metrics
+        metrics = {
+            'expected_return': 0.12 + (hash(str(symbols)) % 10) / 100,  # 0.12-0.21
+            'volatility': 0.15 + (hash(str(symbols)) % 8) / 100,        # 0.15-0.22
+            'sharpe_ratio': 1.2 + (hash(str(symbols)) % 6) / 10,        # 1.2-1.7
+            'max_drawdown': 0.08 + (hash(str(symbols)) % 5) / 100,      # 0.08-0.12
+            'var_95': 0.025 + (hash(str(symbols)) % 3) / 1000,          # Risk metrics
+            'beta': 0.9 + (hash(str(symbols)) % 4) / 20                 # 0.9-1.1
+        }
+        
+        return {
+            'optimal_weights': optimal_weights,
+            'metrics': metrics,
+            'method_used': method,
+            'explanation': f"Optimized using {method} strategy with mock calculation for demo purposes.",
+            'confidence_score': 0.85,
+            'rebalancing_needed': True,
+            'estimated_cost': 0.002,
+            'status': 'success'
+        }
+        
+    except Exception as e:
+        logger.error(f"Demo optimization failed: {e}")
+        return {
+            'optimal_weights': {symbol: 1/len(symbols) for symbol in symbols} if symbols else {},
+            'metrics': {
+                'expected_return': 0.10,
+                'volatility': 0.18,
+                'sharpe_ratio': 0.55,
+                'max_drawdown': 0.15
+            },
+            'error': f"Demo mode - using fallback data: {str(e)}",
+            'status': 'demo_fallback'
+        }
