@@ -20,5 +20,8 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  css: {
+    postcss: './postcss.config.js',
   }
 })
