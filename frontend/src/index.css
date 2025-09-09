@@ -2,7 +2,168 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom animations */
+:root {
+  --background: oklch(0.98 0.01 240);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --financial-primary: #1e3a5f;
+  --financial-secondary: #2563eb;
+  --financial-positive: #10b981;
+  --financial-negative: #ef4444;
+  --financial-neutral: #6b7280;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+  --financial-primary: #1e3a5f;
+  --financial-secondary: #3b82f6;
+  --financial-positive: #10b981;
+  --financial-negative: #ef4444;
+  --financial-neutral: #9ca3af;
+}
+
+@layer base {
+  * {
+    @apply border-gray-200 outline-blue-500/50;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+  }
+  
+  .financial-primary { 
+    color: var(--financial-primary); 
+  }
+  
+  .bg-financial-primary { 
+    background-color: var(--financial-primary); 
+  }
+  
+  .financial-positive { 
+    color: var(--financial-positive); 
+  }
+  
+  .bg-financial-positive { 
+    background-color: var(--financial-positive); 
+  }
+  
+  .financial-negative { 
+    color: var(--financial-negative); 
+  }
+  
+  .bg-financial-negative { 
+    background-color: var(--financial-negative); 
+  }
+}
+
+@layer components {
+  .financial-card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300;
+  }
+  
+  .financial-card-header {
+    @apply p-6 pb-3;
+  }
+  
+  .financial-card-content {
+    @apply p-6 pt-0;
+  }
+  
+  .metric-card {
+    @apply financial-card hover:shadow-lg transition-shadow duration-200;
+  }
+  
+  .metric-value {
+    @apply text-3xl font-bold text-gray-900 mb-1;
+  }
+  
+  .metric-label {
+    @apply text-sm font-medium text-gray-500;
+  }
+  
+  .metric-change {
+    @apply text-sm font-medium flex items-center gap-1;
+  }
+  
+  .sidebar-nav {
+    @apply space-y-1;
+  }
+  
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+  
+  .sidebar-nav-item-active {
+    @apply sidebar-nav-item bg-blue-50 text-blue-700 border border-blue-200;
+  }
+  
+  .sidebar-nav-item-inactive {
+    @apply sidebar-nav-item text-gray-600 hover:text-gray-900 hover:bg-gray-50;
+  }
+}
+
+/* Professional animations */
 @keyframes slide-in-right {
   from {
     opacity: 0;
@@ -14,12 +175,32 @@
   }
 }
 
-@keyframes bg-size-200 {
-  0% {
-    background-position: 0% center;
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
-  100% {
-    background-position: 200% center;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-success {
+  0%, 100% { 
+    background-color: rgb(16 185 129 / 0.1);
+  }
+  50% { 
+    background-color: rgb(16 185 129 / 0.2);
+  }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { 
+    background-color: rgb(239 68 68 / 0.1);
+  }
+  50% { 
+    background-color: rgb(239 68 68 / 0.2);
   }
 }
 
@@ -27,8 +208,32 @@
   animation: slide-in-right 0.3s ease-out;
 }
 
-.bg-size-200 {
-  background-size: 200% 100%;
-  animation: bg-size-200 2s infinite;
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-pulse-success {
+  animation: pulse-success 2s infinite;
+}
+
+.animate-pulse-danger {
+  animation: pulse-danger 2s infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
 }
 
